@@ -10,8 +10,8 @@ import sys
 
 
 def main():
-    base = Base()
-    app = QApplication(sys.argv)
+    base=Base()
+    app=QApplication(sys.argv)
     base.conf.parse_cmdline()
     if base.conf.load_dnf:
         base.sack = base.dnf_load_sack()
