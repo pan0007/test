@@ -1,5 +1,5 @@
 Name:           rpg
-Version:        0.0.2
+Version:        0.0.1
 Release:        1%{?snapshot}%{?dist}
 Summary:        RPM Package Generator
 License:        GPLv2
