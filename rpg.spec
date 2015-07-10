@@ -1,5 +1,5 @@
 Name:           rpg
-Version:        0.0.1
+Version:        0.0.2
 Release:        1%{?snapshot}%{?dist}
 Summary:        RPM Package Generator
 License:        GPLv2
@@ -61,6 +61,9 @@ make ARGS="-V" test
 %{python3_sitelib}/rpg/
 
 %changelog
+* Fri Jul 10 2015 pan0007 <pan007@atlas.sk> 0.0.2-1
+- new package built with tito
+
 * Fri Jul 03 2015 Jan Silhan <jsilhan@redhat.com> 0.0.2-1
 - yum install added to travis (Miroslav Cibulka)
 - python3-corp added to mock rpg.cfg (Miroslav Cibulka)
