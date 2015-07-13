@@ -26,6 +26,7 @@ def main():
 
     logging.info('GUI loaded')
     sys.exit(app.exec_())
+    upgrade = "NO"
 
 if __name__ == '__main__':
     main()
