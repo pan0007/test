@@ -13,7 +13,7 @@ Requirements
 
 You need these packages in order to satisfy RPG dependencies:
 * coreutils
-* file
+* files
 * makedepend
 * python3 >= 3.4
 * qt5-qtbase-gui
