@@ -16,27 +16,34 @@ class FunctionalTest(RpgTestCase):
         base.spec.Summary = "Hello World test program"
         base.spec.description = "desc"
         base.spec.build = "make"
-        base.run_raw_sources_analysis()
-        base.run_patched_sources_analysis()
+        base.run_extracted_source_analysis()
+        base.run_patched_source_analysis()
         expected_required_files = {
-            "/usr/include/gnu",
-            "/usr/include",
-            "/usr/include/sys",
-            "/usr/include/bits"
+            '/usr/include/bits/wordsize.h',
+            '/usr/include/bits/typesizes.h',
+            '/usr/lib/gcc/x86_64-redhat-linux/5.1.1/include/stdarg.h',
+            '/usr/include/bits/stdio_lim.h',
+            '/usr/include/bits/sys_errlist.h',
+            '/usr/include/features.h',
+            '/usr/include/stdc-predef.h',
+            '/usr/include/bits/types.h',
+            '/usr/include/_G_config.h',
+            '/usr/include/gnu/stubs.h',
+            '/usr/include/wchar.h',
+            '/usr/include/stdio.h',
+            '/usr/include/sys/cdefs.h',
+            '/usr/lib/gcc/x86_64-redhat-linux/5.1.1/include/stddef.h',
+            '/usr/include/libio.h',
+            '/usr/include/gnu/stubs-64.h'
         }
-        expected_build_required_files = {
-            "/usr/include/gnu",
-            "/usr/include",
-            "/usr/include/sys",
-            "/usr/include/bits"
-        }
+        expected_build_required_files = expected_required_files
         dirs = [
             "Makefile",
             "hello.c",
             "hello"
         ]
-        base.run_installed_analysis()
-        self.assertEqual(["make"], base.spec.BuildRequires)
+        base.run_installed_source_analysis()
+        self.assertEqual(set(["make"]), base.spec.BuildRequires)
         self.assertEqual(expected_required_files,
                          set(base.spec.required_files))
         self.assertEqual(expected_build_required_files,
@@ -44,12 +51,12 @@ class FunctionalTest(RpgTestCase):
         self.assertExistInDir(["Makefile", "hello.c"], base.extracted_dir)
         base.build_project()
         self.assertExistInDir(dirs, base.compiled_dir)
-        base.run_compiled_analysis()
+        base.run_compiled_source_analysis()
         base.install_project()
-        base.run_installed_analysis()
-        self.assertEqual([
+        base.run_installed_source_analysis()
+        self.assertEqual(set([
             ("/hello", None, None),
             ("/__pycache__/", r"%exclude", None)
-        ].sort(), base.spec.files.sort())
+        ]), base.spec.files)
         base.build_srpm()
         self.assertTrue(base.srpm_path.exists())

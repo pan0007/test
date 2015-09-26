@@ -1,13 +1,10 @@
 import logging
-from os.path import isfile
-from os.path import isdir
+from os.path import isfile, isdir
+from rpg.utils import path_to_str
 from pathlib import Path
-import re
 from rpg.command import Command
-from shutil import rmtree
-from shutil import copytree
+from shutil import rmtree, copytree
 from tempfile import mkdtemp
-import urllib
 
 
 class SourceLoader(object):
@@ -84,17 +81,17 @@ class SourceLoader(object):
 
         logging.debug('load_sources({}, {}) called'
                       .format(str(source_path), str(extraction_dir)))
-        path = str(source_path)
-        extraction_dir = str(extraction_dir)
+        path = path_to_str(source_path)
+        esc_extr_dir = path_to_str(extraction_dir)
         if isfile(path):
             compression = self._get_compression_method(path)
             if not compression:
                 raise IOError("Input source archive '{}' is incompatible!"
                               .format(path))
-            self._extract(path, extraction_dir, compression)
-            self._process_dir(extraction_dir)
-        elif isdir(path):
-            self._copy_dir(path, extraction_dir)
+            self._extract(path, esc_extr_dir, compression)
+            self._process_dir(esc_extr_dir)
+        elif isdir(str(source_path)):
+            self._copy_dir(str(source_path), str(extraction_dir))
         else:
             raise IOError("Input source archive/directory '{}' doesn't exists!"
                           .format(path))
@@ -106,52 +103,44 @@ class SourceLoader(object):
 
         extr_cmd = cls._compressions[compr[0]]
         _cmd = ""
-        if extr_cmd[3]:
+        try:
             ext_cmd = extr_cmd[3][compr[1]]
             _cmd += ext_cmd[0] + " " + ext_cmd[1] + " " + arch + " | "
             arch = "-"
+        except IndexError:
+            pass
         Command(_cmd + extr_cmd[0] + " " + extr_cmd[1] + " " +
                 arch + " " + extr_cmd[2] + " " + extraction_dir).execute()
 
     @classmethod
     def _get_compression_method(cls, name):
         """ determine the compression method used for a tar file. """
-
-        arch_t = re.match(r".+?\.([^.]+)(?:\.([^.]+)|)$", name)
-        if not arch_t.group(1) in cls._compressions \
-                and not arch_t.group(2) in cls._compressions[arch_t.group(1)]:
-            return None
-        return (arch_t.group(1), arch_t.group(2))
+        for second in cls._compressions:
+            try:
+                for first in cls._compressions[second][3]:
+                    if name.endswith(second + "." + first):
+                        return second, first
+            except IndexError:
+                if name.endswith(second):
+                    return second, None
+        raise LookupError("Couldn't resolve compression method of '{}'!"
+                          .format(name))
 
     @classmethod
-    def download_git_repo(cls, url, arch_name,
-                          callback=None, branch='master'):
+    def download_git_repo(cls, url, arch_name, branch='master'):
         """ Downloads archive from github (url) """
         compr = cls._get_compression_method(str(arch_name))
         cls.download_archive(
             str(url) + "/archive/" + branch + "." + compr[0] +
             (("." + compr[1]) if compr[1] else ""),
-            arch_name,
-            callback)
+            arch_name)
 
     @classmethod
-    def download_archive(cls, url, arch_name, retreat_counter=0):
+    def download_archive(cls, url, arch_name):
         """ Download file from 'url' and sets file name to 'arch_name'
             Every progress change will call callback function """
-        if retreat_counter == 10:
-            raise RuntimeError("Can't download '{}' - 10 times retreated"
-                               .format(url))
-        else:
-            try:
-                with open(str(arch_name), 'wb') as out_handle,\
-                        urllib.request.urlopen(url) as in_handle:
-                    while True:
-                        buff = in_handle.read(cls._download_block_size)
-                        if buff:
-                            break
-                        out_handle.write(buff)
-            except:
-                cls.download_archive(url, arch_name, retreat_counter + 1)
+        import urllib.request
+        urllib.request.urlretrieve(url, str(arch_name))
 
     @staticmethod
     def _copy_dir(path, ex_dir):

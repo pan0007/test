@@ -1,16 +1,17 @@
-import hawkey
 import logging
-import platform
 from pathlib import Path
 from rpg.plugin_engine import PluginEngine, phases
+from rpg.plugins.misc.files_to_pkgs import FilesToPkgsPlugin
 from rpg.project_builder import ProjectBuilder
 from copr.client import CoprClient
-from rpg.package_builder import PackageBuilder
+from rpg.package_builder import PackageBuilder, BuildException
 from rpg.source_loader import SourceLoader
 from rpg.spec import Spec
 from rpg.command import cmd_output
 from rpg.command import Command
 from rpg.conf import Conf
+from rpg.utils import path_to_str
+from re import search
 from os.path import isdir
 from os import makedirs
 from os import geteuid
@@ -31,7 +32,7 @@ class Base(object):
         self._package_builder = PackageBuilder()
         self._source_loader = SourceLoader()
 
-    def dnf_load_sack(self):
+    def load_dnf_sack(self):
         logging.info('DNF sack is loading')
         import dnf
         with dnf.Base() as self._dnf_base:
@@ -68,8 +69,8 @@ class Base(object):
     def create_archive(self):
         """ Creates archive (archvie_path) from Source folder """
         self.spec.Source = self.spec.Name + "-" + self.spec.Version + ".tar.gz"
-        _tar = Command("tar zcf " + str(self.archive_path) +
-                       " -C " + str(self.extracted_dir) +
+        _tar = Command("tar zcf " + path_to_str(self.archive_path) +
+                       " -C " + path_to_str(self.extracted_dir) +
                        " . --transform='s/^\./" +
                        self.spec.Name + "-" + self.spec.Version + "/g'")
         _tar.execute()
@@ -110,23 +111,44 @@ class Base(object):
     @property
     def srpm_path(self):
         try:
-            return next(self.base_dir.glob(self.project_name + "*src.rpm"))
+            return next(self.base_dir.glob(self.project_name + "*.src.rpm"))
         except StopIteration:
             raise RuntimeError(
                 "Can't find '{}'! You need to call build_srpm first."
-                .format(str(self.base_dir / (self.project_name + "*src.rpm"))))
+                .format(str(self.base_dir /
+                        (self.project_name + "*.src.rpm"))))
+
+    @property
+    def rpm_path(self):
+        try:
+            _ret = [
+                _path
+                for _path in self.base_dir.glob(self.project_name + "*.rpm")
+                if not str(_path).endswith(".src.rpm")
+            ]
+            if not _ret:
+                raise StopIteration
+            return _ret
+        except StopIteration:
+            raise RuntimeError(
+                "Can't find '{}'! You need to call build_rpm first."
+                .format(str(self.base_dir / (self.project_name + "*.rpm"))))
 
     def load_project_from_url(self, path):
         """executed in background after dir/tarball/SRPM selection"""
-        path = Path(path)
         temp_arch = "downloaded_archive.tar.gz"
-        if "github" in str(path):
-            self._source_loader.download_git_repo(str(path), temp_arch)
+        if search(r"github\.com/[^/]+/[^/]+/?$", str(path)):
+            self._source_loader.download_git_repo(path, temp_arch)
+            path = Path(temp_arch)
         elif str(path).startswith("http"):
-            self._source_loader.download_archive(str(path), temp_arch)
+            temp_arch = search(r"([^/]+\.[^/]+(?:\.[^/]+)?)$", str(path))\
+                .group(0)
+            self._source_loader.download_archive(path, temp_arch)
+            path = Path(temp_arch)
         else:
             temp_arch = None
-        self._hash = self.compute_checksum(path)
+            path = Path(path)
+        self._hash = self._compute_checksum(path)
         self._input_name = path.name
         self._setup_workspace()
         self._source_loader.load_sources(path, self.extracted_dir)
@@ -134,24 +156,20 @@ class Base(object):
         if temp_arch:
             remove(temp_arch)
 
-    def run_raw_sources_analysis(self):
+    def run_extracted_source_analysis(self):
         """executed in background after dir/tarball/SRPM selection"""
         self._plugin_engine.execute_phase(phases[0],
                                           self.extracted_dir)
 
-    def apply_patches(self, ordered_patches):
-        """executed in background after patch selection and reordering"""
-        self._project_builder.apply_patches(ordered_patches)
-
-    def run_patched_sources_analysis(self):
+    def run_patched_source_analysis(self):
         """executed in background after patches are applied"""
         self._plugin_engine.execute_phase(phases[1],
                                           self.extracted_dir)
 
-    def run_compiled_analysis(self):
+    def run_compiled_source_analysis(self):
         """executed in background after patches are applied"""
         self._plugin_engine.execute_phase(phases[2],
-                                          self.extracted_dir)
+                                          self.compiled_dir)
 
     def install_project(self):
         """executed in background after filled requires screen"""
@@ -159,7 +177,7 @@ class Base(object):
                                       self.installed_dir,
                                       self.spec.install)
 
-    def run_installed_analysis(self):
+    def run_installed_source_analysis(self):
         """executed in background after successful project build"""
         self._plugin_engine.execute_phase(phases[3],
                                           self.installed_dir)
@@ -174,7 +192,40 @@ class Base(object):
         self.write_spec()
         self._package_builder.build_srpm(
             self.spec_path, self.archive_path, self.base_dir)
-            
+
+    def build_rpm(self, target_distro, target_arch):
+        try:
+            self.srpm_path
+        except RuntimeError:
+            self.build_srpm()
+        return self._package_builder.build_rpm(str(self.srpm_path),
+                                               target_distro, target_arch,
+                                               self.base_dir)
+
+    def build_rpm_recover(self, distro, arch):
+
+        def build():
+            self.build_srpm()
+            self.build_rpm(distro, arch)
+
+        def analyse():
+            _files_to_pkgs.installed(self.base_dir, self.spec, self.sack)
+            self.write_spec()
+
+        _files_to_pkgs = FilesToPkgsPlugin()
+        analyse()
+        while True:
+            try:
+                build()
+            except BuildException as be:
+                if not self._plugin_engine.execute_mock_recover(be.errors):
+                    if be.return_code:
+                        raise RuntimeError(
+                            "Build failed! See logs in '{}'"
+                            .format(self._package_builder.mock_logs))
+                    break
+            analyse()
+
     def fetch_repos(self, dist, arch):
         self._package_builder.fetch_repos(dist, arch)
 
@@ -185,22 +236,23 @@ class Base(object):
                                     self.spec.build)
 
     def copr_set_config(self, username, login, token):
-        self.cl = CoprClient(username, login, token, copr_url="http://copr.fedoraproject.org")
+        self.cl = CoprClient(
+            username, login, token, copr_url="http://copr.fedoraproject.org")
 
     def copr_create_project(self, name, chroots, desc, intro):
         self.cl.create_project(
             name, chroots=chroots, description=desc, instructions=intro)
 
     def copr_build(self, name, url):
-        self.cl.create_new_build(name, pkgs=[url,])
+        self.cl.create_new_build(name, pkgs=[url, ])
 
     @staticmethod
-    def compute_checksum(sources):
+    def _compute_checksum(sources):
         if sources.is_dir():
             cmd = "find %s -type f -print0 | sort -z | xargs " \
-                  "-0 sha1sum | sha1sum" % sources.resolve()
+                  "-0 sha1sum | sha1sum" % path_to_str(sources.resolve())
         else:
-            cmd = "sha1sum %s" % sources.resolve()
+            cmd = "sha1sum %s" % path_to_str(sources.resolve())
         return cmd_output([cmd])[:7]
 
     @property

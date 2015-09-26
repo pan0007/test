@@ -1,7 +1,7 @@
 from rpg.command import Command
 
 
-class Subpackage(dict):
+class Subpackage(object):
 
     # names of 'single' keys
     _singles = [
@@ -45,125 +45,78 @@ class Subpackage(dict):
     ]
 
     def __init__(self):
-        tags = {
-            "Name": "",
-            "Version": "",
-            "Release": "",
-            "Summary": "",
-            "Group": "",
-            "License": "",
-            "URL": "",
-            "Source": "",
-            "Patch": "",
-            "BuildArch": "",
-            "BuildRoot": "",
-            "Obsoletes": "",
-            "Conflicts": "",
-            "Vendor": "",
-            "Packager": "",
-            "package": "",
-            "BuildRequires": [],
-            "Requires": [],
-            "Provides": [],
-            "description": "",
-            "prep": Command(),
-            "build": Command(),
-            "pre": Command(),
-            "install": Command(),
-            "check": Command(),
-            "post": Command(),
-            "preun": Command(),
-            "postun": Command(),
-            "pretrans": Command(),
-            "posttrans": Command(),
-            "clean": Command(),
-            "changelog": Command(),
-            "files": []
-        }
+        # tags
+        self.Name = ""
+        self.Version = ""
+        self.Release = ""
+        self.Summary = ""
+        self.Group = ""
+        self.License = ""
+        self.URL = ""
+        self.Source = ""
+        self.Patch = ""
+        self.BuildArch = ""
+        self.BuildRoot = ""
+        self.Obsoletes = ""
+        self.Conflicts = ""
+        self.Vendor = ""
+        self.Packager = ""
+        self.package = ""
+        self.description = ""
+        self.BuildRequires = set()
+        self.Requires = set()
+        self.Provides = set()
+        self.files = set()
+        self.changelog = []
+        self.prep = Command()
+        self.build = Command()
+        self.pre = Command()
+        self.install = Command()
+        self.check = Command()
+        self.post = Command()
+        self.preun = Command()
+        self.postun = Command()
+        self.pretrans = Command()
+        self.posttrans = Command()
+        self.clean = Command()
+
         # list of generated translation files
         self.files_translations = []
 
         # (Build)Required file list that will be traslated into packages
-        self.build_required_files = []
-        self.required_files = []
-
-        dict.__init__(self, tags)
-
-    def __getattr__(self, key):
-        ''' Returns attribute of chosen key from dict '''
-        try:
-            return self.__getitem__(key)
-        except KeyError:
-            raise AttributeError(key)
-
-    def __setattr__(self, key, value):
-        ''' Set's attribute to key in dict '''
-        try:
-            if key in self._singles:
-                if not isinstance(value, str):
-                    raise TypeError(value)
-
-            if key not in self._scripts and isinstance(value, type(Command())):
-                raise TypeError(value)
-
-            if not isinstance(value, (list, str, type(Command()))):
-                raise TypeError(value)
-
-            if key == "files" and not isinstance(value, list):
-                raise TypeError(value)
-
-            if key == "description" and not isinstance(value, str):
-                raise TypeError(value)
-
-            if key != "files" and \
-                    key != "description" and \
-                    not isinstance(value, Command) and \
-                    key in self._scripts:
-                value = Command(value)
-
-            if key in [
-                "files_translations",
-                "build_required_files",
-                "required_files"
-            ]:
-                super(Subpackage, self).__setattr__(key, value)
-                return
-
-            self.__getattr__(key)  # raises AttributeError
-            self.__setitem__(key, value)
-        except KeyError:
-            raise AttributeError(key)
+        self.build_required_files = set()
+        self.required_files = set()
 
     def _get_tags(self):
         block = ''
         for ordered_key in self._singles:
-            for key, value in self.items():
-                if value and key is ordered_key:
-                    block += key + ': ' + value + '\n'
+            value = getattr(self, ordered_key)
+            if value:
+                block += ordered_key + ': ' + value + '\n'
         return block
 
     def _get_requires(self):
         block = ''
         for ordered_key in self._appendants:
-            for key, value in self.items():
-                if value and key is ordered_key:
-                    for part in value:
-                        block += key + ':' + '\t' + part + '\n'
+            value = getattr(self, ordered_key)
+            if value:
+                for part in value:
+                    block += ordered_key + ':' + '\t' + part + '\n'
         return block
 
     def _get_scripts(self):
         block = ''
         for ordered_key in self._scripts:
-            for key, value in self.items():
-                if str(value) and str(key) is ordered_key:
-                    if isinstance(value, Command):
-                        block += '%' + str(key) + '\n' + str(value) + '\n\n'
-                    elif isinstance(value, list):
-                        block += '%' + str(key) + '\n' + '\n'.join(
-                            [(val[1] + " " if val[1] else "") + str(val[0])
-                                for val in value]) + '\n\n' if value else ""
-                    else:
-                        block += '%' + str(key) + '\n' + str(value) + '\n\n'
+            value = getattr(self, str(ordered_key))
+            if str(value):
+                if isinstance(value, Command):
+                    block += '%' + ordered_key + '\n' + str(value) + '\n\n'
+                elif (isinstance(value, list) or (isinstance(value, set))):
+                    block += '%' + ordered_key + '\n' + '\n'.join(
+                        [(val[1] + " " if val[1] else "") + str(val[0])
+                            for val in value]) + '\n\n' if value else ""
+                else:
+                    block += '%' + ordered_key + '\n' + str(value) + '\n\n'
         return block
 
     def mark_doc(self, file):
@@ -176,12 +129,48 @@ class Subpackage(dict):
                 f[1].append("%doc")
                 break
         else:
-            self.files.append((file, ["%doc"], None))
+            self.files.add((file, ["%doc"], None))
 
 
 class Spec(Subpackage):
 
-    """SPEC properties holder"""
+    """
+    SPEC properties holder
+
+    :ivar Name: initial value = ""
+    :ivar Version: initial value = ""
+    :ivar Release: initial value = ""
+    :ivar Summary: initial value = ""
+    :ivar Group: initial value = ""
+    :ivar License: initial value = ""
+    :ivar URL: initial value = ""
+    :ivar Source: initial value = ""
+    :ivar Patch: initial value = ""
+    :ivar BuildArch: initial value = ""
+    :ivar BuildRoot: initial value = ""
+    :ivar Obsoletes: initial value = ""
+    :ivar Conflicts: initial value = ""
+    :ivar Vendor: initial value = ""
+    :ivar Packager: initial value = ""
+    :ivar package: initial value = ""
+    :ivar description: initial value = ""
+    :ivar BuildRequires: initial value = set()
+    :ivar Requires: initial value = set()
+    :ivar Provides: initial value = set()
+    :ivar files: initial value = []
+    :ivar changelog: initial value = []
+    :ivar prep: initial value = Command()
+    :ivar build: initial value = Command()
+    :ivar pre: initial value = Command()
+    :ivar install: initial value = Command()
+    :ivar check: initial value = Command()
+    :ivar post: initial value = Command()
+    :ivar preun: initial value = Command()
+    :ivar postun: initial value = Command()
+    :ivar pretrans: initial value = Command()
+    :ivar posttrans: initial value = Command()
+    :ivar clean: initial value = Command()
+    """
     subpackages = []
     changelogs = []
 
@@ -196,9 +185,9 @@ class Spec(Subpackage):
         )
 
     def _write_changelog(self, out):
-        print("\n%changelog", file=out)
+        out.write("\n%changelog")
         for changelog in self.changelogs:
-            print("{}\n".format(changelog), file=out)
+            out.write("{}\n".format(changelog))
 
     def load(source_file):
         pass

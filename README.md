@@ -13,7 +13,7 @@ Requirements
 
 You need these packages in order to satisfy RPG dependencies:
 * coreutils
-* files
+* file
 * makedepend
 * python3 >= 3.4
 * qt5-qtbase-gui
@@ -24,14 +24,22 @@ You need these packages in order to satisfy RPG dependencies:
 * python3-dnf  (optional)
 * python3-copr (optional)
 
-Building in Fedora 21+
-======================
+Building RPG project in Fedora 21+
+==================================
 
 To get project and satisfy all dependencies, run::
 
     git clone https://github.com/rh-lab-q/rpg
     cd rpg
     sudo dnf builddep rpg.spec
+
+Install RPG rpm package
+=======================
+
+To add COPR nightly/rpg repo and install RPG::
+
+    sudo dnf copr enable nightly/rpg
+    sudo dnf install rpg
 
 Start RPG
 =========
@@ -53,7 +61,7 @@ From project root directory execute::
 Documentation
 =============
 
-For documentation, tutorials and examples check [github wiki pages](https://github.com/rh-lab-q/rpg/wiki/)
+For API docs, tutorials and examples check out [official RPG project documentation page](http://rpg.readthedocs.org/)
 
 
 Contribution
