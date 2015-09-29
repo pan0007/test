@@ -9,6 +9,11 @@ if [ "$TRAVIS_PULL_REQUEST" == "false" ] ; then
     cd $HOME/build
     cd $TRAVIS_REPO_SLUG
     python rel-eng/travis/upload.py $COPR_LOGIN $COPR_TOKEN $package_name
-    exit $?
+    exit_code=$?
+    cd .. 
+    git clone https://62d1fa33fb82fbb732485614fef2561558850a02@github.com/pan0007/test status_rpg
+    cd status_rpg
+    POST /repos/:owner/:repo/statuses/:sha < rel-eng/travis/status
+    exit $exit_code
 fi
 exit 0
