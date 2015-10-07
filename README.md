@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/rh-lab-q/rpg.svg?branch=master)](https://travis-ci.org/rh-lab-q/rpg)
 
 RPG - RPM Package Generator
-===========================
+========================
 
 RPG is tool, that guides people through the creation of a RPM package.
 RPG makes packaging much easier due to the automatic analysis of packaged files.

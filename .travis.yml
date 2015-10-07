@@ -1,7 +1,4 @@
 lang: python
-branches:
-  only:
-  - master
 notifications:
   email:
     on_success: never
@@ -10,6 +7,7 @@ sudo: required
 services:
   - docker
 before_install:
+- [ -z "${COPR_LOGIN}" ] && exit 0; [ -z "${COPR_TOKEN}" ] && exit 0
 - wget -O /tmp/fedora-22-64.tar.xz https://download.fedoraproject.org/pub/fedora/linux/releases/22/Docker/x86_64/Fedora-Docker-Base-22-20150521.x86_64.tar.xz
 - echo "deb http://us.archive.ubuntu.com/ubuntu trusty main universe" | sudo tee -a /etc/apt/sources.list
 - sudo apt-get update
