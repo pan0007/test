@@ -7,24 +7,10 @@ sudo: required
 services:
   - docker
 before_install:
-- [ -z "${COPR_LOGIN}" ] && exit 0; [ -z "${COPR_TOKEN}" ] && exit 0
 - wget -O /tmp/fedora-22-64.tar.xz https://download.fedoraproject.org/pub/fedora/linux/releases/22/Docker/x86_64/Fedora-Docker-Base-22-20150521.x86_64.tar.xz
-- echo "deb http://us.archive.ubuntu.com/ubuntu trusty main universe" | sudo tee -a /etc/apt/sources.list
-- sudo apt-get update
 - docker load -i /tmp/fedora-22-64.tar.xz
-- wget https://github.com/dgoodwin/tito/archive/tito-0.4.18-1.tar.gz -O /tmp/tito.tar.gz
-install:
-- sudo apt-get install mock
-- sudo pip install flake8 flake8-diff coveralls /tmp/tito.tar.gz
-- cd $HOME/build/$TRAVIS_REPO_SLUG
 before_script:
 - docker run -i --privileged -d -v $HOME/build/$TRAVIS_REPO_SLUG:/home/travis --name test_fedora Fedora-Docker-Base-22-20150521.x86_64 bash
-- tito build --test --srpm && cp /tmp/tito/*.src.rpm .
-- docker exec -i test_fedora bash -c "dnf install -y python-copr mock libsolv-devel python3-dnf python-devel 'dnf-command(builddep)'; dnf builddep -y /home/travis/rpg.spec"
-- docker exec -i test_fedora bash -c "dnf install -y python-pip python3-nose-cov; pip install coveralls"
-- wget https://raw.githubusercontent.com/rpm-software-management/hawkey/master/hawkey.spec
-- docker exec -i test_fedora bash -c "dnf builddep -y /home/travis/hawkey.spec"
-- docker exec -i test_fedora bash -c "dnf builddep -y /home/travis/rel-eng/travis/libsolv.spec"
-- docker exec -i test_fedora bash -c "useradd -g root fedora; usermod -a -G mock fedora"
+- docker exec -i test_fedora bash -c "useradd -g root fedora"
 script:
 - rel-eng/travis/build.sh
