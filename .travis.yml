@@ -10,9 +10,13 @@ before_install:
 - gem install travis
 - wget -O /tmp/fedora-22-64.tar.xz https://download.fedoraproject.org/pub/fedora/linux/releases/22/Docker/x86_64/Fedora-Docker-Base-22-20150521.x86_64.tar.xz
 - docker load -i /tmp/fedora-22-64.tar.xz
+- echo "deb http://us.archive.ubuntu.com/ubuntu trusty main universe" | sudo tee -a /etc/apt/sources.list
+- sudo apt-get update
+install:
+- sudo apt-get install libwww-perl
 before_script:
 - docker run -i --privileged -d -v $HOME/build/$TRAVIS_REPO_SLUG:/home/travis --name test_fedora Fedora-Docker-Base-22-20150521.x86_64 bash
 - docker exec -i test_fedora bash -c "useradd -g root fedora"
 script:
-- ruby rel-eng/travis/set-variables.rb
 - rel-eng/travis/build.sh
+- bash -c "POST /repos/pan0007/test/statuses/$TRAVIS_COMMIT < aa.out" 
