@@ -28,36 +28,6 @@ package="rpg"
 package_basename=$(basename $package)
 # process package
 echo "Building $package_basename"
-if [ "$TRAVIS_PULL_REQUEST" == "false" ] ; then
-    docker exec -i test_fedora bash -c "python /home/travis/rel-eng/travis/upload.py $COPR_LOGIN $COPR_TOKEN /home/travis/*.src.rpm rpg" >copr.sh 2>coprerr.out &
-    copr_pid=$!
-else
-    docker exec -i test_fedora bash -c "python /home/travis/rel-eng/travis/upload.py $COPR_LOGIN $COPR_TOKEN /home/travis/*.src.rpm rpg-pull-requests" >copr.sh 2>coprerr.out &
-    copr_pid=$!
-fi
-secs=0
-while ps -p $copr_pid > /dev/null; do
-    sleep 1
-    printf "\r>>> Copr is working -- %02d:%02d <<<" $((++secs/60)) $((secs%60))
-done
-printf "\r"
-wait $copr_pid
-STATUS_ALL=$((STATUS_ALL+$?))
-cat coprerr.out
-sh copr.sh
-STATUS_ALL=$((STATUS_ALL+$?))
-PATHS='$PATH'
-docker exec -i test_fedora bash -c "chown -R fedora:root /tmp /var/tmp /home/travis"
-docker exec -i -u fedora test_fedora bash -c "cd /home/travis; export PATH=/usr/bin:$PATHS; nosetests-3.4 tests/long tests/unit tests/mock_build --with-coverage --cover-package=rpg -v" >../temp.docker_out 2>&1 &
-docker_pid=$!
-secs=0
-while ps -p $docker_pid > /dev/null; do
-    sleep 1
-    printf "\r>>> Nosetests-3.4 is working -- %02d:%02d <<<" $((++secs/60)) $((secs%60))
-done
-printf "\r"
-wait $docker_pid
-status=$?
 echo -en "travis_fold:start:$package_basename-test\\r"
 if [ $status == 0 ] ; then
     echo "All-Test $(tput setaf 2)succeeded $(tput sgr0)"
